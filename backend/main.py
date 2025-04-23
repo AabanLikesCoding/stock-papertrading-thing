@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
 import yfinance as yf
@@ -8,14 +9,28 @@ import schemas
 from database import SessionLocal, engine
 from datetime import datetime
 import os
+import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Create database tables
+logger.info("Initializing database...")
 models.Base.metadata.create_all(bind=engine)
+logger.info("Database initialization complete")
 
-# Create the FastAPI app with a prefix for API routes
+# Create the FastAPI app
 app = FastAPI(title="Stock Market Simulator API")
 
-# CORS middleware configuration - allow all origins for containerized deployment
+# CORS middleware configuration - allow all origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,6 +38,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request: {request.method} {request.url.path}")
+    try:
+        response = await call_next(request)
+        logger.info(f"Response status: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"Request error: {str(e)}")
+        raise
 
 # Dependency to get database session
 def get_db():
@@ -34,22 +61,30 @@ def get_db():
 
 @app.get("/")
 def read_root():
+    logger.info("Root endpoint called")
     return {"message": "Welcome to Stock Market Simulator API"}
 
 @app.get("/stock/{symbol}")
 async def get_stock_price(symbol: str):
+    logger.info(f"Fetching stock data for symbol: {symbol}")
     try:
         stock = yf.Ticker(symbol)
         info = stock.info
-        return {
+        if not info or "regularMarketPrice" not in info:
+            logger.error(f"Could not fetch data for {symbol}")
+            raise HTTPException(status_code=404, detail=f"Stock {symbol} not found or no data available")
+        
+        result = {
             "symbol": symbol.upper(),
-            "name": info.get("longName", ""),
+            "name": info.get("longName", symbol.upper()),
             "price": info.get("regularMarketPrice", 0),
             "change": info.get("regularMarketChange", 0),
             "changePercent": info.get("regularMarketChangePercent", 0)
         }
+        logger.info(f"Successfully fetched data for {symbol}: {result}")
+        return result
     except Exception as e:
-        print(f"Error fetching stock {symbol}: {str(e)}")
+        logger.error(f"Error fetching stock {symbol}: {str(e)}")
         raise HTTPException(status_code=404, detail=f"Stock {symbol} not found: {str(e)}")
 
 @app.get("/my-portfolio/{user_id}")
@@ -88,24 +123,38 @@ def get_my_portfolio(user_id: int, db: Session = Depends(get_db)):
 
 @app.get("/trade-history/{user_id}")
 def get_trade_history(user_id: int, db: Session = Depends(get_db)):
-    portfolio = db.query(models.Portfolio).filter(models.Portfolio.user_id == user_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    
-    trades = db.query(models.Trade).filter(models.Trade.portfolio_id == portfolio.id).order_by(models.Trade.timestamp.desc()).all()
-    
-    return [
-        {
-            "id": trade.id,
-            "symbol": trade.symbol,
-            "action": trade.trade_type.lower(),
-            "quantity": trade.quantity,
-            "price": trade.price,
-            "total": trade.price * trade.quantity,
-            "timestamp": trade.timestamp.isoformat()
-        }
-        for trade in trades
-    ]
+    logger.info(f"Fetching trade history for user: {user_id}")
+    try:
+        portfolio = db.query(models.Portfolio).filter(models.Portfolio.user_id == user_id).first()
+        if not portfolio:
+            logger.warning(f"Portfolio not found for user {user_id}")
+            # Create a new portfolio instead of failing
+            portfolio = models.Portfolio(user_id=user_id, cash=10000.00)
+            db.add(portfolio)
+            db.commit()
+            db.refresh(portfolio)
+            logger.info(f"Created new portfolio for user {user_id}")
+            return []
+        
+        trades = db.query(models.Trade).filter(models.Trade.portfolio_id == portfolio.id).order_by(models.Trade.timestamp.desc()).all()
+        
+        result = [
+            {
+                "id": trade.id,
+                "symbol": trade.symbol,
+                "action": trade.trade_type.lower(),
+                "quantity": trade.quantity,
+                "price": trade.price,
+                "total": trade.price * trade.quantity,
+                "timestamp": trade.timestamp.isoformat()
+            }
+            for trade in trades
+        ]
+        logger.info(f"Retrieved {len(result)} trades for user {user_id}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting trade history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get trade history: {str(e)}")
 
 @app.post("/trade")
 def execute_trade(trade: schemas.TradeRequest, db: Session = Depends(get_db)):

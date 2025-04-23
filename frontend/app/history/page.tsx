@@ -18,14 +18,23 @@ export default function History() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:8000/trade-history/1')
-      .then(res => res.json())
+    console.log('Fetching trade history...');
+    fetch('/trade-history/1')
+      .then(res => {
+        console.log(`Trade history response status: ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`Error status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
+        console.log('Received trade history:', data);
         setTrades(data);
         setLoading(false);
       })
       .catch(err => {
-        setError('Failed to load trade history');
+        console.error('Error fetching trade history:', err);
+        setError(`Failed to load trade history: ${err.message}`);
         setLoading(false);
       });
   }, []);

@@ -10,9 +10,9 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install NGINX for proper proxying
+# Install NGINX and debugging tools
 RUN apt-get update && \
-    apt-get install -y nginx curl procps net-tools && \
+    apt-get install -y nginx curl procps net-tools iputils-ping dnsutils && \
     apt-get clean
 
 # Copy backend files
@@ -27,48 +27,95 @@ COPY --from=frontend-builder /app/frontend/public /app/frontend/public
 COPY --from=frontend-builder /app/frontend/package*.json /app/frontend/
 COPY --from=frontend-builder /app/frontend/node_modules /app/frontend/node_modules
 
-# Create NGINX configuration for routing
+# Create NGINX configuration with explicit backend routes
 RUN echo 'server {\n\
     listen $PORT default_server;\n\
-    root /app/frontend/.next;\n\
+    server_name _;\n\
+    access_log /var/log/nginx/access.log;\n\
+    error_log /var/log/nginx/error.log debug;\n\
     \n\
     location / {\n\
-        proxy_pass http://localhost:3000;\n\
+        proxy_pass http://127.0.0.1:3000;\n\
         proxy_http_version 1.1;\n\
         proxy_set_header Upgrade $http_upgrade;\n\
         proxy_set_header Connection "upgrade";\n\
         proxy_set_header Host $host;\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+        proxy_set_header X-Forwarded-Proto $scheme;\n\
     }\n\
     \n\
-    location ~ ^/(stock|trade|trade-history|my-portfolio) {\n\
-        proxy_pass http://localhost:8000;\n\
+    location /stock/ {\n\
+        proxy_pass http://127.0.0.1:8000/stock/;\n\
         proxy_http_version 1.1;\n\
-        proxy_set_header Upgrade $http_upgrade;\n\
-        proxy_set_header Connection "upgrade";\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+    }\n\
+    \n\
+    location /trade {\n\
+        proxy_pass http://127.0.0.1:8000/trade;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+    }\n\
+    \n\
+    location /trade-history/ {\n\
+        proxy_pass http://127.0.0.1:8000/trade-history/;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+    }\n\
+    \n\
+    location /my-portfolio/ {\n\
+        proxy_pass http://127.0.0.1:8000/my-portfolio/;\n\
+        proxy_http_version 1.1;\n\
         proxy_set_header Host $host;\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
     }\n\
 }\n' > /etc/nginx/sites-available/default
 
-# Create startup script
+# Create a comprehensive debugging script
 RUN echo '#!/bin/bash\n\
-echo "Starting backend API server..."\n\
-cd /app/backend && uvicorn main:app --host 0.0.0.0 --port 8000 &\n\
+# Start and monitor all services with detailed logging\n\
+\n\
+mkdir -p /app/logs\n\
+\n\
+# Start backend with detailed logging\n\
+cd /app/backend\n\
+echo "Starting backend on port 8000..."\n\
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --log-level debug > /app/logs/backend.log 2>&1 &\n\
 BACKEND_PID=$!\n\
+echo "Backend started with PID: $BACKEND_PID"\n\
 \n\
-echo "Starting frontend server..."\n\
-cd /app/frontend && npx next start -p 3000 &\n\
+# Wait for backend to start\n\
+echo "Waiting for backend to be ready..."\n\
+sleep 5\n\
+\n\
+# Debug backend connection\n\
+echo "Checking backend API..."\n\
+curl -v http://localhost:8000/ > /app/logs/backend_check.log 2>&1\n\
+\n\
+# Start frontend with detailed logging\n\
+cd /app/frontend\n\
+echo "Starting frontend on port 3000..."\n\
+npx next start -p 3000 > /app/logs/frontend.log 2>&1 &\n\
 FRONTEND_PID=$!\n\
+echo "Frontend started with PID: $FRONTEND_PID"\n\
 \n\
-echo "Starting NGINX server..."\n\
+# Configure and start NGINX\n\
+echo "Configuring and starting NGINX..."\n\
 sed -i "s/\$PORT/$PORT/g" /etc/nginx/sites-available/default\n\
+cat /etc/nginx/sites-available/default > /app/logs/nginx_config.log\n\
+nginx -t > /app/logs/nginx_test.log 2>&1\n\
+\n\
+# Start NGINX in the foreground\n\
+echo "Starting NGINX..."\n\
 nginx -g "daemon off;"\n\
 ' > /app/start.sh
 
 RUN chmod +x /app/start.sh
 
-# Expose the port
+# Expose the ports
 EXPOSE $PORT 8000 3000
 
 # Start all services
