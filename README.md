@@ -24,15 +24,20 @@ A professional-grade stock market simulator built with Next.js and FastAPI. Prac
 ### Backend
 - FastAPI
 - SQLAlchemy
-- SQLite
+- PostgreSQL (production) / SQLite (development)
 - yfinance (Yahoo Finance API)
-- Python 3.8+
+- Python 3.9+
+
+### Deployment
+- Docker
+- Render (unified deployment)
+- Environment variables for configuration
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+ 
-- Python 3.8+
+- Python 3.9+
 - pip
 - npm or yarn
 
@@ -104,12 +109,16 @@ uvicorn main:app --reload
 │   │   ├── trade/
 │   │   ├── layout.tsx
 │   │   └── page.tsx
+│   ├── .env.production
+│   ├── next.config.js
 │   └── package.json
 ├── backend/
 │   ├── main.py
 │   ├── models.py
 │   ├── schemas.py
 │   └── requirements.txt
+├── Dockerfile
+├── render.yaml
 └── README.md
 ```
 
@@ -124,16 +133,16 @@ The application uses:
 
 ## Deployment
 
-### Frontend (Vercel)
+### Combined Deployment on Render
 1. Push to GitHub
-2. Import to Vercel
-3. Configure environment variables
-4. Deploy
+2. Import to Render
+3. Set the environment variable:
+   | Key | Value |
+   |---|---|
+   | DATABASE_URL | postgresql://postgres:password@localhost:5432/stock_simulator |
+4. Deploy as a Docker service
 
-### Backend
-1. Set up a Python hosting service (e.g., Heroku, DigitalOcean)
-2. Configure environment variables
-3. Deploy the FastAPI application
+The application is deployed as a single Docker container that runs both the FastAPI backend and serves the Next.js frontend. The frontend API calls are proxied to the backend through the `/api` route.
 
 ## License
 
