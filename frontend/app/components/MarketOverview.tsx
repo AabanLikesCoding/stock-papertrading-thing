@@ -14,14 +14,11 @@ export default function MarketOverview() {
   const [loading, setLoading] = useState(true);
   const popularStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'];
   
-  // Use environment variable for API URL or fallback to localhost for development
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
   useEffect(() => {
     const fetchStocks = async () => {
       try {
         const promises = popularStocks.map(symbol =>
-          fetch(`${API_URL}/stock/${symbol}`).then(res => res.json())
+          fetch(`/stock/${symbol}`).then(res => res.json())
         );
         const results = await Promise.all(promises);
         setStocks(results);

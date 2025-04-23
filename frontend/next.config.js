@@ -4,9 +4,23 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NODE_ENV === 'production' 
-          ? 'http://localhost:8000/:path*'  // In production, proxy to the backend on the same container
-          : 'http://localhost:8000/:path*'  // In development, proxy to local backend
+        destination: '/api/:path*',  // Route to internal API routes
+      },
+      {
+        source: '/stock/:path*',
+        destination: 'http://localhost:8000/stock/:path*',  // Stock data
+      },
+      {
+        source: '/trade',
+        destination: 'http://localhost:8000/trade',  // Trading
+      },
+      {
+        source: '/trade-history/:path*',
+        destination: 'http://localhost:8000/trade-history/:path*',  // History
+      },
+      {
+        source: '/my-portfolio/:path*',
+        destination: 'http://localhost:8000/my-portfolio/:path*',  // Portfolio
       }
     ]
   },

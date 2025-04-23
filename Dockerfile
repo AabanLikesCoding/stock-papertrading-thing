@@ -22,16 +22,25 @@ COPY --from=frontend-builder /app/frontend/public /app/frontend/public
 COPY --from=frontend-builder /app/frontend/package*.json /app/frontend/
 COPY --from=frontend-builder /app/frontend/node_modules /app/frontend/node_modules
 
-# Create a script to run both services
+# Install debugging tools
+RUN apt-get update && apt-get install -y curl procps net-tools && apt-get clean
+
+# Create a startup script that ensures proper API routing
 RUN echo '#!/bin/bash\n\
-cd /app/backend && uvicorn main:app --host 0.0.0.0 --port $PORT &\n\
-cd /app/frontend && npx next start -p 3000\n\
-wait' > /app/start.sh
+echo "Starting backend API server..."\n\
+cd /app/backend && uvicorn main:app --host 0.0.0.0 --port 8000 &\n\
+BACKEND_PID=$!\n\
+echo "Backend started with PID: $BACKEND_PID"\n\
+echo "Waiting for backend to be ready..."\n\
+sleep 5\n\
+echo "Starting frontend server..."\n\
+cd /app/frontend && PORT=$PORT npx next start\n\
+' > /app/start.sh
 
 RUN chmod +x /app/start.sh
 
 # Expose the port
-EXPOSE $PORT 3000
+EXPOSE $PORT 8000
 
 # Start both services
 CMD ["/app/start.sh"] 

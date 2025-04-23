@@ -21,9 +21,7 @@ export default function Trade() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Use environment variable for API URL or fallback to localhost for development
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
+  // Use direct paths for API calls
   const searchStock = async (symbol: string = searchQuery) => {
     if (!symbol) return;
     
@@ -33,7 +31,7 @@ export default function Trade() {
     setSearchQuery(symbol);
     
     try {
-      const response = await fetch(`${API_URL}/stock/${symbol}`);
+      const response = await fetch(`/stock/${symbol}`);
       if (!response.ok) throw new Error('Stock not found');
       setStockData(await response.json());
     } catch (err) {
@@ -47,7 +45,7 @@ export default function Trade() {
     if (!stockData || !quantity) return;
     
     try {
-      const response = await fetch(`${API_URL}/trade`, {
+      const response = await fetch(`/trade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
