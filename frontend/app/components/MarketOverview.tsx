@@ -6,7 +6,7 @@ interface MarketStock {
   symbol: string;
   price: number;
   change: number;
-  changePercent: number;
+  name: string;
 }
 
 export default function MarketOverview() {
@@ -94,7 +94,7 @@ export default function MarketOverview() {
             <div className="flex items-center gap-4">
               <span>${stock.price.toFixed(2)}</span>
               <span className={`${stock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
+                {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}%
               </span>
             </div>
           </div>

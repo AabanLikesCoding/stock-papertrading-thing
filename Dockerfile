@@ -52,15 +52,8 @@ RUN echo 'server {\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
     }\n\
     \n\
-    location /trade {\n\
-        proxy_pass http://127.0.0.1:8000/trade;\n\
-        proxy_http_version 1.1;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
-    }\n\
-    \n\
-    location /trade-history/ {\n\
-        proxy_pass http://127.0.0.1:8000/trade-history/;\n\
+    location /make-trade {\n\
+        proxy_pass http://127.0.0.1:8000/make-trade;\n\
         proxy_http_version 1.1;\n\
         proxy_set_header Host $host;\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
@@ -83,7 +76,7 @@ mkdir -p /app/logs\n\
 # Start backend with detailed logging\n\
 cd /app/backend\n\
 echo "Starting backend on port 8000..."\n\
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --log-level debug > /app/logs/backend.log 2>&1 &\n\
+python -m uvicorn my_stock_app:my_app --host 0.0.0.0 --port 8000 --log-level debug > /app/logs/backend.log 2>&1 &\n\
 BACKEND_PID=$!\n\
 echo "Backend started with PID: $BACKEND_PID"\n\
 \n\

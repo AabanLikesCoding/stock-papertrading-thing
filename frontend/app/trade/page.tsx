@@ -10,7 +10,6 @@ interface StockData {
   name: string;
   price: number;
   change: number;
-  changePercent: number;
 }
 
 export default function Trade() {
@@ -51,14 +50,14 @@ export default function Trade() {
     
     try {
       console.log(`Executing trade: ${action} ${quantity} shares of ${stockData.symbol}`);
-      const response = await fetch(`/trade`, {
+      const response = await fetch(`/make-trade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: 1,
           symbol: stockData.symbol,
           quantity: parseInt(quantity),
-          action: action,
+          trade_type: action.toUpperCase(),
         }),
       });
       console.log(`Trade response status: ${response.status}`);
@@ -145,8 +144,7 @@ export default function Trade() {
                 <div className="transition-all hover:scale-105">
                   <h3 className="text-zinc-400">Change</h3>
                   <p className={`text-xl mt-1 ${stockData.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {stockData.change >= 0 ? '+' : ''}{stockData.change.toFixed(2)} 
-                    <span className="text-sm ml-1">({stockData.changePercent.toFixed(2)}%)</span>
+                    {stockData.change >= 0 ? '+' : ''}{stockData.change.toFixed(2)}%
                   </p>
                 </div>
               </div>
