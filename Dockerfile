@@ -42,68 +42,82 @@ RUN echo 'server {\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
     }\n\
     \n\
-    # Backend - direct pass\n\
+    # Simple API endpoints\n\
     location /stock/ {\n\
         proxy_pass http://127.0.0.1:8000/stock/;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Host $host;\n\
     }\n\
     \n\
     location /make-trade {\n\
         proxy_pass http://127.0.0.1:8000/make-trade;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Host $host;\n\
     }\n\
     \n\
     location /my-portfolio/ {\n\
         proxy_pass http://127.0.0.1:8000/my-portfolio/;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Host $host;\n\
     }\n\
 }\n' > /etc/nginx/sites-available/default
 
-# Create a simple test script
+# Simple health check script
 RUN echo '#!/bin/bash\n\
+echo "Testing API..."\n\
 curl -v http://localhost:8000/stock/AAPL\n\
 ' > /app/test_api.sh
 RUN chmod +x /app/test_api.sh
 
-# Create startup script with more robust service management
+# Create a robust startup script
 RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
 mkdir -p /app/logs\n\
 \n\
-# Make sure yfinance is installed\n\
-pip install -U yfinance\n\
-\n\
-# Display backend files for debugging\n\
-echo "Backend files:"\n\
-ls -la /app/backend/\n\
-\n\
-# Start backend with detailed logging\n\
+echo "===== STARTING BACKEND ====="\n\
 cd /app/backend\n\
-echo "Starting backend on port 8000..."\n\
 python -m uvicorn my_stock_app:my_app --host 0.0.0.0 --port 8000 --log-level debug > /app/logs/backend.log 2>&1 &\n\
 BACKEND_PID=$!\n\
 echo "Backend started with PID: $BACKEND_PID"\n\
 \n\
-# Wait for backend to start\n\
+# Wait for the backend to start\n\
 echo "Waiting for backend to be ready..."\n\
-sleep 5\n\
+for i in {1..10}; do\n\
+  echo "Attempt $i: Checking if backend is up..."\n\
+  if curl -s http://localhost:8000/ > /dev/null; then\n\
+    echo "Backend is up!"\n\
+    break\n\
+  fi\n\
+  if [ $i -eq 10 ]; then\n\
+    echo "Backend failed to start. Check logs:"\n\
+    cat /app/logs/backend.log\n\
+    exit 1\n\
+  fi\n\
+  sleep 2\n\
+done\n\
 \n\
-# Debug backend connection - test if API works\n\
+# Test the stock API\n\
 echo "Testing stock API..."\n\
 curl -v http://localhost:8000/stock/AAPL > /app/logs/api_test.log 2>&1\n\
-echo "API test result: $?"\n\
+if [ $? -ne 0 ]; then\n\
+  echo "API test failed. Check logs:"\n\
+  cat /app/logs/api_test.log\n\
+  exit 1\n\
+fi\n\
 \n\
-# Start frontend with detailed logging\n\
+echo "===== STARTING FRONTEND ====="\n\
 cd /app/frontend\n\
-echo "Starting frontend on port 3000..."\n\
 npx next start -p 3000 > /app/logs/frontend.log 2>&1 &\n\
 FRONTEND_PID=$!\n\
 echo "Frontend started with PID: $FRONTEND_PID"\n\
 \n\
-# Configure and start NGINX\n\
-echo "Configuring and starting NGINX..."\n\
+echo "===== STARTING NGINX ====="\n\
 sed -i "s/\$PORT/$PORT/g" /etc/nginx/sites-available/default\n\
 cat /etc/nginx/sites-available/default > /app/logs/nginx_config.log\n\
 nginx -t > /app/logs/nginx_test.log 2>&1\n\
 \n\
-# Start NGINX in the foreground\n\
-echo "Starting NGINX..."\n\
+# Monitor the processes\n\
 nginx -g "daemon off;"\n\
 ' > /app/start.sh
 

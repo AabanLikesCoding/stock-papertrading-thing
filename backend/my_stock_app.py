@@ -23,17 +23,18 @@ Base.metadata.create_all(bind=engine)
 # Create my app
 my_app = FastAPI(title="My Cool Stock Market Game 📈")
 
-# Alpha Vantage API Key - you can get a free one from https://www.alphavantage.co/support/#api-key
-# For this demo, we'll use a fallback approach if we don't have a key
-ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY", "demo")
-
-# Static stock data for fallback
-FALLBACK_STOCKS = {
+# Static stock data - always works without any API
+STOCK_DATA = {
     "AAPL": {"name": "Apple Inc.", "price": 180.75, "change": 1.35},
     "MSFT": {"name": "Microsoft Corporation", "price": 338.48, "change": 0.89},
     "GOOGL": {"name": "Alphabet Inc.", "price": 137.12, "change": -0.45},
     "AMZN": {"name": "Amazon.com Inc.", "price": 127.74, "change": 2.25},
     "TSLA": {"name": "Tesla Inc.", "price": 237.01, "change": -1.20},
+    "META": {"name": "Meta Platforms Inc.", "price": 324.95, "change": 3.12},
+    "NVDA": {"name": "NVIDIA Corporation", "price": 429.97, "change": 2.37},
+    "NFLX": {"name": "Netflix Inc.", "price": 484.13, "change": -1.54},
+    "PYPL": {"name": "PayPal Holdings Inc.", "price": 63.42, "change": -0.73},
+    "INTC": {"name": "Intel Corporation", "price": 42.32, "change": 0.28},
 }
 
 # Get frontend URL from environment variable or use localhost for development
@@ -78,76 +79,35 @@ async def get_stock_info(symbol: str):
     symbol = symbol.upper()
     logger.info(f"Stock info requested for {symbol}")
     
-    try:
-        # Try to get data from Alpha Vantage API
-        url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={ALPHA_VANTAGE_API_KEY}"
-        logger.debug(f"Requesting data from Alpha Vantage: {url}")
+    # Add a small delay to simulate network request
+    time.sleep(0.1)
+    
+    # If symbol exists in our data
+    if symbol in STOCK_DATA:
+        # Add a tiny random price variation each time
+        stock_info = STOCK_DATA[symbol].copy()
+        # Add a little randomness to prices for realism
+        variation = random.uniform(-2.0, 2.0)
+        stock_info["price"] = round(stock_info["price"] + variation, 2)
+        stock_info["change"] = round(stock_info["change"] + (variation / 10), 2)
+        stock_info["symbol"] = symbol
         
-        response = requests.get(url)
-        data = response.json()
+        logger.info(f"Returning stock info for {symbol}: {stock_info}")
+        return stock_info
+    else:
+        # Generate random data for unknown symbols
+        price = round(random.uniform(50, 500), 2)
+        change = round(random.uniform(-3, 3), 2)
         
-        # Check if we got valid data
-        if "Global Quote" in data and data["Global Quote"]:
-            quote = data["Global Quote"]
-            logger.debug(f"Alpha Vantage response: {quote}")
-            
-            price = float(quote.get("05. price", 0))
-            change_percent = float(quote.get("10. change percent", "0%").replace("%", ""))
-            
-            # Get company name from another endpoint
-            name_url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={symbol}&apikey={ALPHA_VANTAGE_API_KEY}"
-            name_response = requests.get(name_url)
-            name_data = name_response.json()
-            company_name = name_data.get("Name", f"{symbol} Inc.")
-            
-            result = {
-                "symbol": symbol,
-                "price": price,
-                "name": company_name,
-                "change": change_percent
-            }
-            logger.info(f"Returning data from Alpha Vantage for {symbol}: {result}")
-            return result
-        else:
-            logger.warning(f"No data from Alpha Vantage, using fallback for {symbol}")
-            # If symbol exists in our fallback data
-            if symbol in FALLBACK_STOCKS:
-                return {
-                    "symbol": symbol,
-                    "price": FALLBACK_STOCKS[symbol]["price"],
-                    "name": FALLBACK_STOCKS[symbol]["name"],
-                    "change": FALLBACK_STOCKS[symbol]["change"]
-                }
-            # Generate random data for unknown symbols
-            else:
-                price = round(random.uniform(50, 500), 2)
-                change = round(random.uniform(-3, 3), 2)
-                return {
-                    "symbol": symbol,
-                    "price": price,
-                    "name": f"{symbol} Inc.",
-                    "change": change
-                }
-    except Exception as e:
-        logger.error(f"Error in stock endpoint: {str(e)}")
-        # Use fallback data
-        if symbol in FALLBACK_STOCKS:
-            return {
-                "symbol": symbol,
-                "price": FALLBACK_STOCKS[symbol]["price"],
-                "name": FALLBACK_STOCKS[symbol]["name"],
-                "change": FALLBACK_STOCKS[symbol]["change"]
-            }
-        else:
-            # Generate random data for unknown symbols
-            price = round(random.uniform(50, 500), 2)
-            change = round(random.uniform(-3, 3), 2)
-            return {
-                "symbol": symbol,
-                "price": price,
-                "name": f"{symbol} Inc.",
-                "change": change
-            }
+        result = {
+            "symbol": symbol,
+            "price": price,
+            "name": f"{symbol} Inc.",
+            "change": change
+        }
+        
+        logger.info(f"Generated random stock data for {symbol}: {result}")
+        return result
 
 @my_app.get("/my-portfolio/{user_id}")
 def check_my_portfolio(user_id: int, db = Depends(get_db)):

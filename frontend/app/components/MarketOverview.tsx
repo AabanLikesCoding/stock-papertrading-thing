@@ -13,70 +13,85 @@ export default function MarketOverview() {
   const [stocks, setStocks] = useState<MarketStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Use fewer stocks for faster loading
-  const popularStocks = ['AAPL', 'MSFT'];
+  // Use the most popular stocks
+  const popularStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'];
 
   useEffect(() => {
-    const fetchStocks = async () => {
+    async function fetchStock(symbol: string) {
       try {
-        console.log('Fetching market overview stocks...');
+        console.log(`Fetching ${symbol}...`);
+        const response = await fetch(`/stock/${symbol}`);
         
-        // Try direct API call to debug
-        const testResponse = await fetch('/stock/AAPL');
-        console.log(`Direct API test response status: ${testResponse.status}`);
-        if (testResponse.ok) {
-          const testData = await testResponse.json();
-          console.log('Test data received:', testData);
-        } else {
-          console.error('Direct API test failed:', testResponse.statusText);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${symbol}: ${response.status}`);
         }
         
-        // Attempt to fetch each stock individually
-        let successfulFetches = 0;
-        const stockResults = [];
+        const data = await response.json();
+        console.log(`Data for ${symbol}:`, data);
+        return data;
+      } catch (error) {
+        console.error(`Error fetching ${symbol}:`, error);
+        return null;
+      }
+    }
+
+    async function fetchAllStocks() {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        console.log('Starting to fetch stock data...');
         
+        const stockData = [];
+        // Fetch one stock at a time to avoid overwhelming the API
         for (const symbol of popularStocks) {
-          try {
-            console.log(`Fetching ${symbol}...`);
-            const response = await fetch(`/stock/${symbol}`);
-            console.log(`Response for ${symbol}: ${response.status}`);
-            
-            if (response.ok) {
-              const data = await response.json();
-              console.log(`Data for ${symbol}:`, data);
-              stockResults.push(data);
-              successfulFetches++;
-            }
-          } catch (err) {
-            console.error(`Error fetching ${symbol}:`, err);
+          const data = await fetchStock(symbol);
+          if (data) {
+            stockData.push(data);
           }
         }
         
-        if (successfulFetches === 0) {
+        console.log('Fetched stocks:', stockData);
+        
+        if (stockData.length === 0) {
           setError('Could not load any stock data');
         } else {
-          setStocks(stockResults);
-          setError(null);
+          setStocks(stockData);
         }
       } catch (err) {
-        console.error('Error fetching market overview:', err);
+        console.error('Error in fetchAllStocks:', err);
         setError('Failed to load market data');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchStocks();
-    const interval = setInterval(fetchStocks, 60000); // Refresh every minute
+    fetchAllStocks();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchAllStocks();
+    }, 30000);
+    
     return () => clearInterval(interval);
   }, []);
+  
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    
+    // Force component to refetch data
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
+  };
 
   if (loading) {
     return (
       <div className="bg-black p-4 rounded-lg border border-zinc-800 animate-pulse">
         <div className="h-6 bg-zinc-800 rounded w-1/4 mb-4"></div>
         <div className="space-y-2">
-          {[...Array(2)].map((_, i) => (
+          {[...Array(5)].map((_, i) => (
             <div key={i} className="h-12 bg-zinc-800 rounded"></div>
           ))}
         </div>
@@ -90,7 +105,7 @@ export default function MarketOverview() {
         <h3 className="text-lg font-semibold mb-4">Market Overview</h3>
         <p>{error}</p>
         <button 
-          onClick={() => window.location.reload()}
+          onClick={handleRetry}
           className="mt-4 px-4 py-2 bg-zinc-900 text-white rounded border border-zinc-800 hover:bg-zinc-800 hover:border-white"
         >
           Retry
