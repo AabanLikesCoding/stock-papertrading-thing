@@ -20,7 +20,8 @@ export default function MarketOverview() {
     async function fetchStock(symbol: string) {
       try {
         console.log(`Fetching ${symbol}...`);
-        const response = await fetch(`/stock/${symbol}`);
+        // Use our Next.js API route directly
+        const response = await fetch(`/api/stock/${symbol}`);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch ${symbol}: ${response.status}`);

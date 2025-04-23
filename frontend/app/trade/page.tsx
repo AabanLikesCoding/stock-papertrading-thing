@@ -31,7 +31,8 @@ export default function Trade() {
     
     try {
       console.log(`Fetching stock data for ${symbol}`);
-      const response = await fetch(`/stock/${symbol}`);
+      // Use our local Next.js API route 
+      const response = await fetch(`/api/stock/${symbol}`);
       console.log(`Response status: ${response.status}`);
       if (!response.ok) throw new Error('Stock not found');
       const data = await response.json();
@@ -50,34 +51,51 @@ export default function Trade() {
     
     try {
       console.log(`Executing trade: ${action} ${quantity} shares of ${stockData.symbol}`);
-      const response = await fetch(`/make-trade`, {
+      
+      setLoading(true);
+      setError('');
+      
+      // Determine which API endpoint to use
+      const endpoint = `/api/trade/${action}`;
+      
+      // Convert quantity to number
+      const parsedQuantity = parseInt(quantity);
+      
+      // Call the appropriate trade API
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          user_id: 1,
+          userId: '1', // Default user
           symbol: stockData.symbol,
-          quantity: parseInt(quantity),
-          trade_type: action.toUpperCase(),
+          quantity: parsedQuantity,
+          price: stockData.price
         }),
       });
-      console.log(`Trade response status: ${response.status}`);
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Trade error:', errorData);
-        throw new Error(errorData.detail || 'Trade failed');
+        throw new Error(errorData.error || `Trade failed: ${response.status}`);
       }
       
       const result = await response.json();
       console.log('Trade result:', result);
+      
       setSuccessMessage(`Successfully ${action}ed ${quantity} shares of ${stockData.symbol}`);
       setQuantity('');
+      
+      // Fetch the stock data again to refresh the price
       searchStock(stockData.symbol);
 
+      // Hide success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Error executing trade:', err);
       setError(`Trade failed: ${err instanceof Error ? err.message : 'Please try again.'}`);
+    } finally {
+      setLoading(false);
     }
   };
 

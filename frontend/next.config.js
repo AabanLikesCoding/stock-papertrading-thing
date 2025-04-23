@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // No rewrites needed as NGINX handles routing
+  // Standalone output for deployment
   output: 'standalone',
 }
 
