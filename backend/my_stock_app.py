@@ -8,6 +8,7 @@ from my_database_stuff import SessionLocal, engine
 from my_data_classes import Base, Portfolio, Position
 from my_types import TradeRequest, PortfolioResponse
 from datetime import datetime
+import os
 
 # Create my database tables
 Base.metadata.create_all(bind=engine)
@@ -15,10 +16,13 @@ Base.metadata.create_all(bind=engine)
 # Create my app
 my_app = FastAPI(title="My Cool Stock Market Game 📈")
 
+# Get frontend URL from environment variable or use localhost for development
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
 # Allow my React app to talk to my backend
 my_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # My frontend URL
+    allow_origins=[FRONTEND_URL, "*"],  # Allow requests from the frontend and any origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

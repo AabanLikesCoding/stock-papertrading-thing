@@ -7,16 +7,20 @@ import models
 import schemas
 from database import SessionLocal, engine
 from datetime import datetime
+import os
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Stock Market Simulator API")
 
+# Get frontend URL from environment variable or use localhost for development
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
 # CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=[FRONTEND_URL, "*"],  # Allow requests from the frontend and any origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
