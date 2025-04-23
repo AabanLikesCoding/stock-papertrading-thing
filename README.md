@@ -1,2 +1,3 @@
-# stock-papertrading-thing
-It's a stock papertrader that I built in like 2 nights but this is the one w/ out AI cus Im lazy 
+# stock-papertrade-website
+
+Hello, this project is a paper trading website consisting of 3 main features and integrations to track your investments.
