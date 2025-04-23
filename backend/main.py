@@ -15,13 +15,10 @@ models.Base.metadata.create_all(bind=engine)
 # Create the FastAPI app with a prefix for API routes
 app = FastAPI(title="Stock Market Simulator API")
 
-# Get frontend URL from environment variable or use localhost for development
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-
-# CORS middleware configuration
+# CORS middleware configuration - allow all origins for containerized deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow requests from any origin
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,7 +49,8 @@ async def get_stock_price(symbol: str):
             "changePercent": info.get("regularMarketChangePercent", 0)
         }
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Stock {symbol} not found")
+        print(f"Error fetching stock {symbol}: {str(e)}")
+        raise HTTPException(status_code=404, detail=f"Stock {symbol} not found: {str(e)}")
 
 @app.get("/my-portfolio/{user_id}")
 def get_my_portfolio(user_id: int, db: Session = Depends(get_db)):

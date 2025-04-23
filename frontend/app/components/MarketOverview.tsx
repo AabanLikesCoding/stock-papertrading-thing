@@ -12,18 +12,41 @@ interface MarketStock {
 export default function MarketOverview() {
   const [stocks, setStocks] = useState<MarketStock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const popularStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'];
   
   useEffect(() => {
     const fetchStocks = async () => {
       try {
-        const promises = popularStocks.map(symbol =>
-          fetch(`/stock/${symbol}`).then(res => res.json())
-        );
+        console.log('Fetching market overview stocks...');
+        const promises = popularStocks.map(symbol => {
+          console.log(`Fetching ${symbol}...`);
+          return fetch(`/stock/${symbol}`)
+            .then(res => {
+              if (!res.ok) {
+                throw new Error(`Failed to fetch ${symbol}: ${res.status}`);
+              }
+              return res.json();
+            })
+            .catch(err => {
+              console.error(`Error fetching ${symbol}:`, err);
+              return null;
+            });
+        });
+        
         const results = await Promise.all(promises);
-        setStocks(results);
+        const validResults = results.filter(Boolean) as MarketStock[];
+        console.log('Market overview results:', validResults);
+        
+        if (validResults.length === 0) {
+          setError('Could not load any stock data');
+        } else {
+          setStocks(validResults);
+          setError(null);
+        }
       } catch (err) {
         console.error('Error fetching market overview:', err);
+        setError('Failed to load market data');
       } finally {
         setLoading(false);
       }
@@ -43,6 +66,15 @@ export default function MarketOverview() {
             <div key={i} className="h-12 bg-zinc-800 rounded"></div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-black p-4 rounded-lg border border-red-800 text-red-400">
+        <h3 className="text-lg font-semibold mb-4">Market Overview</h3>
+        <p>{error}</p>
       </div>
     );
   }

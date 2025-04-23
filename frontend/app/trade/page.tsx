@@ -31,10 +31,15 @@ export default function Trade() {
     setSearchQuery(symbol);
     
     try {
+      console.log(`Fetching stock data for ${symbol}`);
       const response = await fetch(`/stock/${symbol}`);
+      console.log(`Response status: ${response.status}`);
       if (!response.ok) throw new Error('Stock not found');
-      setStockData(await response.json());
+      const data = await response.json();
+      console.log(`Got data:`, data);
+      setStockData(data);
     } catch (err) {
+      console.error('Error fetching stock:', err);
       setError('Failed to fetch stock data. Please try again.');
     } finally {
       setLoading(false);
@@ -45,6 +50,7 @@ export default function Trade() {
     if (!stockData || !quantity) return;
     
     try {
+      console.log(`Executing trade: ${action} ${quantity} shares of ${stockData.symbol}`);
       const response = await fetch(`/trade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,17 +61,24 @@ export default function Trade() {
           action: action,
         }),
       });
-
-      if (!response.ok) throw new Error('Trade failed');
+      console.log(`Trade response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Trade error:', errorData);
+        throw new Error(errorData.detail || 'Trade failed');
+      }
       
       const result = await response.json();
+      console.log('Trade result:', result);
       setSuccessMessage(`Successfully ${action}ed ${quantity} shares of ${stockData.symbol}`);
       setQuantity('');
       searchStock(stockData.symbol);
 
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Trade failed. Please try again.');
+      console.error('Error executing trade:', err);
+      setError(`Trade failed: ${err instanceof Error ? err.message : 'Please try again.'}`);
     }
   };
 
