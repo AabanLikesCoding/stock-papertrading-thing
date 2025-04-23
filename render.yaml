@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: stock-papertrading-thing
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: /api
+      - key: DATABASE_URL
+        value: ${RENDER_DB_URL} 
