@@ -3,10 +3,18 @@ services:
     name: stock-papertrading-thing
     env: docker
     dockerfilePath: ./Dockerfile
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
         value: /api
       - key: DATABASE_URL
-        value: ${RENDER_DB_URL} 
+        value: ${RENDER_DB_URL}
+      - key: PORT
+        value: 8000
+  
+  - type: postgres
+    name: stock-papertrading-db
+    plan: free
+    ipAllowList: [] 

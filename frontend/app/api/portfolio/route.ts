@@ -1,8 +1,27 @@
 import { NextResponse } from 'next/server';
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
-const db = new Database(path.join(process.cwd(), 'portfolio.db'));
+interface User {
+  cash: number;
+}
+
+interface Position {
+  id: number;
+  symbol: string;
+  shares: number;
+  average_price: number;
+  user_id: number;
+}
+
+// Ensure data directory exists
+const DATA_DIR = path.join(process.cwd(), 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const db = new Database(path.join(DATA_DIR, 'portfolio.db'));
 
 // Initialize the database
 db.exec(`
@@ -26,8 +45,15 @@ initUser.run();
 
 export async function GET() {
   try {
-    const portfolio = db.prepare('SELECT * FROM portfolio WHERE user_id = ?').all(1);
-    const user = db.prepare('SELECT cash FROM users WHERE id = ?').get(1);
+    const portfolio = db.prepare('SELECT * FROM portfolio WHERE user_id = ?').all(1) as Position[];
+    const user = db.prepare('SELECT cash FROM users WHERE id = ?').get(1) as User;
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
     
     return NextResponse.json({
       cash: user.cash,
